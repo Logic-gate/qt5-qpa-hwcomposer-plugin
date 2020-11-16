@@ -95,7 +95,7 @@ DisplayName display_name_function(int raw_name)
         case HWC_DISPLAY_VIRTUAL:
             return DisplayName::virt;
     }
-}
+};
 
 
 int num_displays(std::array<hwc_display_contents_1_t*, HWC_NUM_DISPLAY_TYPES> const& displays)
@@ -104,6 +104,7 @@ int num_displays(std::array<hwc_display_contents_1_t*, HWC_NUM_DISPLAY_TYPES> co
         std::find_if(displays.begin(), displays.end(),
             [](hwc_display_contents_1_t* d){ return d == nullptr; }));
 }
+
 
 void hwc2_callback_vsync(HWC2EventListener* listener, int32_t sequenceId,
                          hwc2_display_t display, int64_t timestamp)
@@ -253,11 +254,14 @@ int display_int(DisplayName display_names){
 
 }
 
-// int getCurrentDisplay(){
+void HwComposerBackend_v20::getExternalDisplay(){
 
-
-
-// }
+    int display = display_int(DisplayName::external);
+    //THIS IS STUPID>>>>>VERY STUPID
+    if (is_plugged[HWC_DISPLAY_EXTERNAL]){
+        hwc2_primary_display = hwc2_displays[display].get();
+    }
+}
 
 int HwComposerBackend_v20::composerSequenceId = 0;
 
@@ -268,6 +272,7 @@ HwComposerBackend_v20::HwComposerBackend_v20(hw_module_t *hwc_module, void *libm
     , hwc2_primary_layer(NULL)
     , m_displayOff(true)
 {
+    getExternalDisplay();
     int display = display_int(display_names);
     procs = new HwcProcs_v20();
     procs->on_vsync_received = hwc2_callback_vsync;
@@ -275,15 +280,16 @@ HwComposerBackend_v20::HwComposerBackend_v20(hw_module_t *hwc_module, void *libm
     procs->on_refresh_received = hwc2_callback_refresh;
     procs->backend = this;
 
-
-    qWarning("MAD::DisplayName::display_name %i", display_names);
+    
     hwc2_device = hwc2_compat_device_new(false);
     HWC_PLUGIN_ASSERT_NOT_NULL(hwc2_device);
+
+    qWarning("MAD::DisplayName::display_name %i", display_names);
+    qWarning("MAD::hwc2_device::hwc2_device %p", hwc2_device);
 
     hwc2_compat_device_register_callback(hwc2_device, procs,
         HwComposerBackend_v20::composerSequenceId++);
 
-    
     qWarning("MAD::HWC_DISPLAY_PRIMARY %i", HWC_DISPLAY_PRIMARY);
     qWarning("MAD::HWC_DISPLAY_EXTERNAL %i", HWC_DISPLAY_EXTERNAL);
 
@@ -291,30 +297,34 @@ HwComposerBackend_v20::HwComposerBackend_v20(hw_module_t *hwc_module, void *libm
         // Wait at most 5s for hotplug events
         if ((hwc2_primary_display =
             hwc2_compat_device_get_display_by_id(hwc2_device, display)))
-            qWarning("MAD::wait %i", i);
             break;
         usleep(1000);
     }
 
-    if (display_int(display_names) == HWC_DISPLAY_PRIMARY){
+    if (display == HWC_DISPLAY_PRIMARY){
+        //ALSO>>>VERY STUPID
         qWarning("MAD::primary display connected");
+        is_plugged[HWC_DISPLAY_PRIMARY].store(true);
+        is_plugged[HWC_DISPLAY_EXTERNAL].store(false);
     }
-
+    else {
+        is_plugged[HWC_DISPLAY_PRIMARY].store(false);
+        is_plugged[HWC_DISPLAY_EXTERNAL].store(true);
+    }
+    
+    hwc2_displays[display] = {hwc2_compat_display_ptr{hwc2_primary_display}};
+    auto hwc2_display = hwc2_displays[display].get();
+    qWarning("MAD::hwc2_display @ %p", hwc2_display);
     //0 is pri 1 is external
-    //auto hwc2_display = hwc2_displays[as_hwc_display(display_names)].get();
+
     HWC_PLUGIN_ASSERT_NOT_NULL(hwc2_primary_display);
     qWarning("MAD::DISPLAY @:: %p", hwc2_primary_display);
-
 
     sleepDisplay(false);
 }
 
 HwComposerBackend_v20::~HwComposerBackend_v20()
 {
-    hwc2_compat_display_set_vsync_enabled(hwc2_primary_display, HWC2_VSYNC_DISABLE);
-
-    hwc2_compat_display_set_power_mode(hwc2_primary_display, HWC2_POWER_MODE_DOZE);
-
     // Close the hwcomposer handle
     if (!qgetenv("QPA_HWC_WORKAROUNDS").split(',').contains("no-close-hwc"))
         free(hwc2_device);
@@ -333,7 +343,7 @@ HwComposerBackend_v20::display()
 }
 
 EGLNativeWindowType
-HwComposerBackend_v20::createWindow(int width, int height)
+HwComposerBackend_v20::createWindow(int width, int height, DisplayName display_names)
 {
     // We expect that we haven't created a window already, if we had, we
     // would leak stuff, and we want to avoid that for obvious reasons.
@@ -352,7 +362,9 @@ HwComposerBackend_v20::createWindow(int width, int height)
     HWC2Window *hwc_win = new HWC2Window(width, height,
                                          HAL_PIXEL_FORMAT_RGBA_8888,
                                          hwc2_primary_display, layer);
+
     qWarning("MAD::createWindow:: %p", hwc2_primary_display);
+
     return (EGLNativeWindowType) static_cast<ANativeWindow *>(hwc_win);
 }
 
@@ -384,6 +396,7 @@ HwComposerBackend_v20::swap(EGLNativeDisplayType display, EGLSurface surface)
 void
 HwComposerBackend_v20::sleepDisplay(bool sleep)
 {
+
     m_displayOff = sleep;
     if (sleep) {
         // Stop the timer so we don't end up calling into eventControl after the
@@ -407,6 +420,7 @@ HwComposerBackend_v20::sleepDisplay(bool sleep)
 float
 HwComposerBackend_v20::refreshRate()
 {
+
     float value = (float)hwc2_compat_display_get_active_config(hwc2_primary_display)->vsyncPeriod;
     qWarning("MAD::refreshrate:: %p", hwc2_primary_display);
     value = (1000000000.0 / value);
@@ -416,8 +430,9 @@ HwComposerBackend_v20::refreshRate()
 }
 
 bool
-HwComposerBackend_v20::getScreenSizes(int *width, int *height, float *physical_width, float *physical_height)
+HwComposerBackend_v20::getScreenSizes(int *width, int *height, float *physical_width, float *physical_height, DisplayName display_names)
 {
+    //int display = display_int(display_names);
     HWC2DisplayConfig *config = hwc2_compat_display_get_active_config(hwc2_primary_display);
     qWarning("MAD::screensize:: %p", hwc2_primary_display);
     // should not happen
@@ -434,7 +449,6 @@ HwComposerBackend_v20::getScreenSizes(int *width, int *height, float *physical_w
         return false;
     }
 
-
     *physical_width = (((float)*width) * 25.4) / (float)dpi_x;
     *physical_height = (((float)*height) * 25.4) / (float)dpi_y;
 
@@ -443,6 +457,7 @@ HwComposerBackend_v20::getScreenSizes(int *width, int *height, float *physical_w
 
 void HwComposerBackend_v20::timerEvent(QTimerEvent *e)
 {
+
     if (e->timerId() == m_vsyncTimeout.timerId()) {
         hwc2_compat_display_set_vsync_enabled(hwc2_primary_display, HWC2_VSYNC_DISABLE);
         qWarning("MAD::timerEvent:: %p", hwc2_primary_display);
@@ -510,6 +525,9 @@ void HwComposerBackend_v20::onHotplugReceived(int32_t sequenceId,
 {
     hwc2_compat_device_on_hotplug(hwc2_device, display, connected);
 
+    //Most of follows is from ubports...doesn't mean it works though,
+    //still trying to wrap my head around what the hell is going on
+
     int display_id = primaryDisplay ? HWC_DISPLAY_PRIMARY : HWC_DISPLAY_EXTERNAL;
 
     if (auto new_display = hwc2_compat_device_get_display_by_id(hwc2_device, display)) {
@@ -526,6 +544,21 @@ void HwComposerBackend_v20::onHotplugReceived(int32_t sequenceId,
 
             int width = config->width;
             int height = config->height;
+            //EO TESTING CONFIG
+
+            if (!primaryDisplay){
+                qWarning("MAD::FOUND NONE PRIMARY");
+            }
+
+            if (is_plugged[HWC_DISPLAY_PRIMARY]){
+                //WHY???????
+                 qWarning("MAD::PRIMARY CONNECTED");
+            }
+
+             if (is_plugged[HWC_DISPLAY_EXTERNAL]){
+                 qWarning("MAD::EXTERNAL CONNECTED");
+            }
+            
 
             qWarning("MAD::External::dpi_x:: %i dpi_y:: %i width:: %i height:: %i", dpi_x, dpi_y, width, height);
             
@@ -534,9 +567,9 @@ void HwComposerBackend_v20::onHotplugReceived(int32_t sequenceId,
                 qWarning("MAD:: We have an old display with this id, replacing this!");
             }
 
-            hwc2_displays[display_id] = {hwc2_compat_display_ptr{new_display}};
-            lastPresentFence[display_id] = -1;
-            active_displays[display_id] = true;
+            //hwc2_displays[display_id] = {hwc2_compat_display_ptr{new_display}};
+            //lastPresentFence[display_id] = -1;
+            //active_displays[display_id] = true;
             qWarning("MAD::New Display @ %p", new_display);
 
         } else {

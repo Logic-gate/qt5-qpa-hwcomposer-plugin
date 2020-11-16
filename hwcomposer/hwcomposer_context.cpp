@@ -153,7 +153,8 @@ EGLNativeWindowType HwComposerContext::createNativeWindow(const QSurfaceFormat &
 
     window_created = true;
     QSize size = screenSize();
-    return backend->createWindow(size.width(), size.height());
+    DisplayName display_name = DisplayName::primary;
+    return backend->createWindow(size.width(), size.height(), display_name);
 }
 
 void HwComposerContext::destroyNativeWindow(EGLNativeWindowType window)

@@ -68,18 +68,6 @@ struct free_delete
 };
 
 
-  enum class DisplayName
-{
-    primary = HWC_DISPLAY_PRIMARY,
-    external = HWC_DISPLAY_EXTERNAL,
-#ifdef ANDROID_CAF
-    tertiary = HWC_DISPLAY_TERTIARY,
-#endif
-    virt = HWC_DISPLAY_VIRTUAL
-};
-
-
-
 struct DisplayContents
 {
     DisplayName name;
@@ -101,12 +89,12 @@ public:
     virtual ~HwComposerBackend_v20();
 
     virtual EGLNativeDisplayType display();
-    virtual EGLNativeWindowType createWindow(int width, int height);
+    virtual EGLNativeWindowType createWindow(int width, int height, DisplayName display_name);
     virtual void destroyWindow(EGLNativeWindowType window);
     virtual void swap(EGLNativeDisplayType display, EGLSurface surface);
     virtual void sleepDisplay(bool sleep);
     virtual float refreshRate();
-    virtual bool getScreenSizes(int *width, int *height, float *physical_width, float *physical_height);
+    virtual bool getScreenSizes(int *width, int *height, float *physical_width, float *physical_height, DisplayName display_name);
 
     virtual bool requestUpdate(QEglFSWindow *window) Q_DECL_OVERRIDE;
 
@@ -121,9 +109,11 @@ public:
     static int composerSequenceId;
 
     void invalidate() noexcept;
-   
 
+    int display_switch(DisplayName);
 
+    void getExternalDisplay();
+    
 private:
 
     hwc2_compat_device_t* hwc2_device;

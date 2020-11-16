@@ -55,6 +55,18 @@
 
 #include <qdebug.h>
 
+
+enum class DisplayName
+{
+    primary = HWC_DISPLAY_PRIMARY,
+    external = HWC_DISPLAY_EXTERNAL,
+#ifdef ANDROID_CAF
+    tertiary = HWC_DISPLAY_TERTIARY,
+#endif
+    virt = HWC_DISPLAY_VIRTUAL
+};
+
+
 class QEglFSWindow;
 
 // Evaluate "x", if it doesn't return zero, print a warning
@@ -104,13 +116,13 @@ public:
 
     // Public API that needs to be implemented by a versioned backend
     virtual EGLNativeDisplayType display() = 0;
-    virtual EGLNativeWindowType createWindow(int width, int height) = 0;
+    virtual EGLNativeWindowType createWindow(int width, int height, DisplayName display_name) = 0;
     virtual void destroyWindow(EGLNativeWindowType window) = 0;
     virtual void swap(EGLNativeDisplayType display, EGLSurface surface) = 0;
     virtual void sleepDisplay(bool sleep) = 0;
     virtual float refreshRate() = 0;
 
-    virtual bool getScreenSizes(int *width, int *height, float *physical_width, float *physical_height) = 0;
+    virtual bool getScreenSizes(int *width, int *height, float *physical_width, float *physical_height, DisplayName display_name) = 0;
 
     virtual bool requestUpdate(QEglFSWindow *) { return false; }
 

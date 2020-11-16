@@ -209,7 +209,8 @@ private:
 class HwComposerScreenInfoHWCSource {
 public:
     HwComposerScreenInfoHWCSource(HwComposerBackend *backend) {
-        m_have_values = backend->getScreenSizes(&m_width, &m_height, &m_physicalWidth, &m_physicalHeight);
+        DisplayName display_name = DisplayName::primary;
+        m_have_values = backend->getScreenSizes(&m_width, &m_height, &m_physicalWidth, &m_physicalHeight, display_name);
         m_depth = 32;
     }
 

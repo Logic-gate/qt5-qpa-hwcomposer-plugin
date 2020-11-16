@@ -224,7 +224,7 @@ HwComposerBackend_v11::display()
 }
 
 EGLNativeWindowType
-HwComposerBackend_v11::createWindow(int width, int height)
+HwComposerBackend_v11::createWindow(int width, int height, DisplayName display_name)
 {
     // We expect that we haven't created a window already, if we had, we
     // would leak stuff, and we want to avoid that for obvious reasons.
@@ -450,7 +450,7 @@ HwComposerBackend_v11::refreshRate()
 }
 
 bool
-HwComposerBackend_v11::getScreenSizes(int *width, int *height, float *physical_width, float *physical_height)
+HwComposerBackend_v11::getScreenSizes(int *width, int *height, float *physical_width, float *physical_height, DisplayName display_name)
 {
     int dpi_x = getSingleAttribute(HWC_DISPLAY_DPI_X) / 1000;
     int dpi_y = getSingleAttribute(HWC_DISPLAY_DPI_Y) / 1000;

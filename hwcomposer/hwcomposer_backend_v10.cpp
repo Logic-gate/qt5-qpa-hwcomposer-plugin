@@ -169,7 +169,7 @@ HwComposerBackend_v10::display()
 }
 
 EGLNativeWindowType
-HwComposerBackend_v10::createWindow(int width, int height)
+HwComposerBackend_v10::createWindow(int width, int height, DisplayName display_name)
 {
     // We expect that we haven't created a window already, if we had, we
     // would leak stuff, and we want to avoid that for obvious reasons.
