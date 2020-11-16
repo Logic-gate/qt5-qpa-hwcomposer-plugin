@@ -52,12 +52,52 @@
 
 #include <QBasicTimer>
 
+#include <unordered_map>
+#include <memory>
+#include <atomic>
+#include <mutex>
+#include <functional>
+
+
 class HwcProcs_v20;
 class QWindow;
 
+struct free_delete
+{
+    void operator()(void* x) { free(x); }
+};
+
+
+  enum class DisplayName
+{
+    primary = HWC_DISPLAY_PRIMARY,
+    external = HWC_DISPLAY_EXTERNAL,
+#ifdef ANDROID_CAF
+    tertiary = HWC_DISPLAY_TERTIARY,
+#endif
+    virt = HWC_DISPLAY_VIRTUAL
+};
+
+
+
+struct DisplayContents
+{
+    DisplayName name;
+};
+
+
+
+typedef std::unique_ptr<hwc2_compat_display_t, free_delete> hwc2_compat_display_ptr;
+typedef std::unique_ptr<HWC2DisplayConfig, free_delete> HWC2DisplayConfig_ptr;
+
+inline auto as_hwc_display(DisplayName name) -> int
+{
+    return static_cast<int>(name);
+}
+
 class HwComposerBackend_v20 : public QObject, public HwComposerBackend {
 public:
-    HwComposerBackend_v20(hw_module_t *hwc_module, void *libminisf);
+    HwComposerBackend_v20(hw_module_t *hwc_module, void *libminisf, DisplayName display_name);
     virtual ~HwComposerBackend_v20();
 
     virtual EGLNativeDisplayType display();
@@ -76,20 +116,45 @@ public:
 
     void onHotplugReceived(int32_t sequenceId, hwc2_display_t display,
                            bool connected, bool primaryDisplay);
+   //virtual void hdmi_test(DisplayName display_name, bool primaryDisplay, hwc2_display_t display);
 
     static int composerSequenceId;
 
+    void invalidate() noexcept;
+   
+
+
 private:
+
     hwc2_compat_device_t* hwc2_device;
     hwc2_compat_display_t* hwc2_primary_display;
     hwc2_compat_layer_t* hwc2_primary_layer;
 
+    struct Callbacks
+    {
+        std::function<void()> handleVSyncEvent;
+        std::function<void(int32_t, DisplayName, bool)> onHotplugReceived;
+        std::function<float()> refreshRate();
+
+    };
+
+    std::mutex callback_map_lock;
+    std::unordered_map<int, hwc2_compat_display_ptr> hwc2_displays;
+    std::atomic<bool> is_plugged[HWC_NUM_DISPLAY_TYPES];
+    std::unordered_map<void const*, Callbacks> callback_map;
+    std::unordered_map<int, bool> active_displays;
+    std::unordered_map<int, int> lastPresentFence;
+    std::unordered_map<int, std::vector<hwc2_compat_layer_t*>> display_contents;
+    
     bool m_displayOff;
     QBasicTimer m_deliverUpdateTimeout;
     QBasicTimer m_vsyncTimeout;
     QSet<QWindow *> m_pendingUpdate;
     HwcProcs_v20 *procs;
+
+   
 };
+
 
 #endif /* HWC_PLUGIN_HAVE_HWCOMPOSER1_API */
 

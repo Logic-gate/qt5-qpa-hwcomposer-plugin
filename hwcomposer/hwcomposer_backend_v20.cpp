@@ -53,6 +53,11 @@
 
 #include <inttypes.h>
 
+#include <sstream>
+
+
+
+
 // #ifdef HWC_PLUGIN_HAVE_HWCOMPOSER1_API
 
 // #define QPA_HWC_TIMING
@@ -68,10 +73,37 @@ static qint64 setTime;
 #define QPA_HWC_TIMING_SAMPLE(variable)
 #endif
 
+
 struct HwcProcs_v20 : public HWC2EventListener
 {
     HwComposerBackend_v20 *backend;
 };
+
+DisplayName display_name_function(int raw_name)
+{
+    switch(raw_name)
+    {
+        default:
+        case HWC_DISPLAY_PRIMARY:
+            return DisplayName::primary;
+        case HWC_DISPLAY_EXTERNAL:
+            return DisplayName::external;
+#ifdef ANDROID_CAF
+        case HWC_DISPLAY_TERTIARY:
+            return DisplayName::tertiary;
+#endif
+        case HWC_DISPLAY_VIRTUAL:
+            return DisplayName::virt;
+    }
+}
+
+
+int num_displays(std::array<hwc_display_contents_1_t*, HWC_NUM_DISPLAY_TYPES> const& displays)
+{
+    return std::distance(displays.begin(),
+        std::find_if(displays.begin(), displays.end(),
+            [](hwc_display_contents_1_t* d){ return d == nullptr; }));
+}
 
 void hwc2_callback_vsync(HWC2EventListener* listener, int32_t sequenceId,
                          hwc2_display_t display, int64_t timestamp)
@@ -209,35 +241,70 @@ void HWC2Window::present(HWComposerNativeWindowBuffer *buffer)
     setFenceBufferFd(buffer, presentFence);
 }
 
+int display_int(DisplayName display_names){
+    int _display = as_hwc_display(display_names);
+
+     if (_display == HWC_DISPLAY_PRIMARY){
+        return HWC_DISPLAY_PRIMARY;
+     }
+     if (_display == HWC_DISPLAY_EXTERNAL){
+        return HWC_DISPLAY_EXTERNAL;
+     }
+
+}
+
+// int getCurrentDisplay(){
+
+
+
+// }
+
 int HwComposerBackend_v20::composerSequenceId = 0;
 
-HwComposerBackend_v20::HwComposerBackend_v20(hw_module_t *hwc_module, void *libminisf)
+HwComposerBackend_v20::HwComposerBackend_v20(hw_module_t *hwc_module, void *libminisf, DisplayName display_names)
     : HwComposerBackend(hwc_module, libminisf)
     , hwc2_device(NULL)
     , hwc2_primary_display(NULL)
     , hwc2_primary_layer(NULL)
     , m_displayOff(true)
 {
+    int display = display_int(display_names);
     procs = new HwcProcs_v20();
     procs->on_vsync_received = hwc2_callback_vsync;
     procs->on_hotplug_received = hwc2_callback_hotplug;
     procs->on_refresh_received = hwc2_callback_refresh;
     procs->backend = this;
 
+
+    qWarning("MAD::DisplayName::display_name %i", display_names);
     hwc2_device = hwc2_compat_device_new(false);
     HWC_PLUGIN_ASSERT_NOT_NULL(hwc2_device);
 
     hwc2_compat_device_register_callback(hwc2_device, procs,
         HwComposerBackend_v20::composerSequenceId++);
 
+    
+    qWarning("MAD::HWC_DISPLAY_PRIMARY %i", HWC_DISPLAY_PRIMARY);
+    qWarning("MAD::HWC_DISPLAY_EXTERNAL %i", HWC_DISPLAY_EXTERNAL);
+
     for (int i = 0; i < 5 * 1000; ++i) {
         // Wait at most 5s for hotplug events
         if ((hwc2_primary_display =
-            hwc2_compat_device_get_display_by_id(hwc2_device, 0)))
+            hwc2_compat_device_get_display_by_id(hwc2_device, display)))
+            qWarning("MAD::wait %i", i);
             break;
         usleep(1000);
     }
+
+    if (display_int(display_names) == HWC_DISPLAY_PRIMARY){
+        qWarning("MAD::primary display connected");
+    }
+
+    //0 is pri 1 is external
+    //auto hwc2_display = hwc2_displays[as_hwc_display(display_names)].get();
     HWC_PLUGIN_ASSERT_NOT_NULL(hwc2_primary_display);
+    qWarning("MAD::DISPLAY @:: %p", hwc2_primary_display);
+
 
     sleepDisplay(false);
 }
@@ -270,6 +337,7 @@ HwComposerBackend_v20::createWindow(int width, int height)
 {
     // We expect that we haven't created a window already, if we had, we
     // would leak stuff, and we want to avoid that for obvious reasons.
+    
     HWC_PLUGIN_EXPECT_NULL(hwc2_primary_layer);
 
     hwc2_compat_layer_t* layer = hwc2_primary_layer =
@@ -284,7 +352,7 @@ HwComposerBackend_v20::createWindow(int width, int height)
     HWC2Window *hwc_win = new HWC2Window(width, height,
                                          HAL_PIXEL_FORMAT_RGBA_8888,
                                          hwc2_primary_display, layer);
-
+    qWarning("MAD::createWindow:: %p", hwc2_primary_display);
     return (EGLNativeWindowType) static_cast<ANativeWindow *>(hwc_win);
 }
 
@@ -327,7 +395,7 @@ HwComposerBackend_v20::sleepDisplay(bool sleep)
         hwc2_compat_display_set_power_mode(hwc2_primary_display, HWC2_POWER_MODE_OFF);
     } else {
         hwc2_compat_display_set_power_mode(hwc2_primary_display, HWC2_POWER_MODE_ON);
-
+        qWarning("MAD::power_on:: %p", hwc2_primary_display);
         // If we have pending updates, make sure those start happening now..
         if (m_pendingUpdate.size()) {
             hwc2_compat_display_set_vsync_enabled(hwc2_primary_display, HWC2_VSYNC_ENABLE);
@@ -340,7 +408,7 @@ float
 HwComposerBackend_v20::refreshRate()
 {
     float value = (float)hwc2_compat_display_get_active_config(hwc2_primary_display)->vsyncPeriod;
-
+    qWarning("MAD::refreshrate:: %p", hwc2_primary_display);
     value = (1000000000.0 / value);
 
     // make sure the value is "reasonable", otherwise fallback to 60.0.
@@ -351,7 +419,7 @@ bool
 HwComposerBackend_v20::getScreenSizes(int *width, int *height, float *physical_width, float *physical_height)
 {
     HWC2DisplayConfig *config = hwc2_compat_display_get_active_config(hwc2_primary_display);
-
+    qWarning("MAD::screensize:: %p", hwc2_primary_display);
     // should not happen
     if (!config) return false;
 
@@ -366,6 +434,7 @@ HwComposerBackend_v20::getScreenSizes(int *width, int *height, float *physical_w
         return false;
     }
 
+
     *physical_width = (((float)*width) * 25.4) / (float)dpi_x;
     *physical_height = (((float)*height) * 25.4) / (float)dpi_y;
 
@@ -376,6 +445,7 @@ void HwComposerBackend_v20::timerEvent(QTimerEvent *e)
 {
     if (e->timerId() == m_vsyncTimeout.timerId()) {
         hwc2_compat_display_set_vsync_enabled(hwc2_primary_display, HWC2_VSYNC_DISABLE);
+        qWarning("MAD::timerEvent:: %p", hwc2_primary_display);
         m_vsyncTimeout.stop();
         // When waking up, we might get here as a result of requesting vsync events
         // before the hwc is up and running. If we're timing out while still waiting
@@ -439,6 +509,55 @@ void HwComposerBackend_v20::onHotplugReceived(int32_t sequenceId,
                                         bool primaryDisplay)
 {
     hwc2_compat_device_on_hotplug(hwc2_device, display, connected);
+
+    int display_id = primaryDisplay ? HWC_DISPLAY_PRIMARY : HWC_DISPLAY_EXTERNAL;
+
+    if (auto new_display = hwc2_compat_device_get_display_by_id(hwc2_device, display)) {
+
+        if (connected) {
+            qWarning("MAD::Adding display %" PRIu64 " with id %i", display, display_id);
+            
+            // TESTING CONFIG
+            auto &oldDisplay = hwc2_displays[display_id];
+            HWC2DisplayConfig *config = hwc2_compat_display_get_active_config(new_display);
+            
+            int dpi_x = config->dpiX;
+            int dpi_y = config->dpiY;
+
+            int width = config->width;
+            int height = config->height;
+
+            qWarning("MAD::External::dpi_x:: %i dpi_y:: %i width:: %i height:: %i", dpi_x, dpi_y, width, height);
+            
+           
+            if (oldDisplay) {
+                qWarning("MAD:: We have an old display with this id, replacing this!");
+            }
+
+            hwc2_displays[display_id] = {hwc2_compat_display_ptr{new_display}};
+            lastPresentFence[display_id] = -1;
+            active_displays[display_id] = true;
+            qWarning("MAD::New Display @ %p", new_display);
+
+        } else {
+            auto &oldDisplay = hwc2_displays[display_id];
+            if (!oldDisplay) {
+                qWarning("MAD::hotplug: Could not find display to remove, ignoring");
+            } else {
+                qWarning("MAD::hotplug: Removing display %i", display_id);
+                active_displays[display_id] = false;
+                is_plugged[HWC_DISPLAY_EXTERNAL].store(false);
+            }
+        }
+
+            is_plugged[display_id].store(connected);
+            auto name = display_name_function(display);
+            std::unique_lock<std::mutex> lk(callback_map_lock);
+
+        }
+        else {
+        qWarning("MAD::hotplug: Something went wrong when trying to get display id!");
+    }
 }
 
 // #endif /* HWC_PLUGIN_HAVE_HWCOMPOSER1_API */
