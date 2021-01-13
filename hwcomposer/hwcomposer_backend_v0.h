@@ -56,7 +56,7 @@ public:
     virtual void swap(EGLNativeDisplayType display, EGLSurface surface);
     virtual void sleepDisplay(bool sleep);
     virtual float refreshRate();
-    virtual bool getScreenSizes(int *width, int *height, float *physical_width, float *physical_height, DisplayName display_name)
+    virtual bool getScreenSizes(int *width, int *height, float *physical_width, float *physical_height)
     {
         *width = 0;
         *height = 0;

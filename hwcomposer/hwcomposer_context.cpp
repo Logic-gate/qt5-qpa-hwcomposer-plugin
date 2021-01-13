@@ -63,6 +63,9 @@
 
 QT_BEGIN_NAMESPACE
 
+//FOR TESTING -- MUST BE CHANGED WITH LINE 78 in hwcomposer_backend.cpp
+DisplayName display_name = DisplayName::primary;
+//Dont forget
 
 static void exit_qt_gracefully(int sig)
 {
@@ -153,7 +156,6 @@ EGLNativeWindowType HwComposerContext::createNativeWindow(const QSurfaceFormat &
 
     window_created = true;
     QSize size = screenSize();
-    DisplayName display_name = DisplayName::primary;
     return backend->createWindow(size.width(), size.height(), display_name);
 }
 

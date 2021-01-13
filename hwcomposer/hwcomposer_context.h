@@ -54,8 +54,6 @@
 #include <QtGui/QSurfaceFormat>
 #include <QtGui/QImage>
 #include <EGL/egl.h>
-#include <hardware/hardware.h>
-#include <hardware/hwcomposer.h>
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
 #include <QtEglSupport/private/qeglplatformcontext_p.h>
@@ -65,16 +63,12 @@
 
 QT_BEGIN_NAMESPACE
 
-
-
 class QEglFSContext;
 class QEglFSWindow;
 class HwComposerScreenInfo;
 class HwComposerBackend;
 
 class HwComposerContext
-
-
 {
 public:
     HwComposerContext();

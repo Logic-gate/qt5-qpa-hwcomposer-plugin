@@ -72,7 +72,7 @@ HwComposerBackend_v0::display()
 }
 
 EGLNativeWindowType
-HwComposerBackend_v0::createWindow(int width, int height, DisplayName display_name)
+HwComposerBackend_v0::createWindow(int width, int height)
 {
     Q_UNUSED(width);
     Q_UNUSED(height);

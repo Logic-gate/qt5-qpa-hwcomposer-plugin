@@ -55,7 +55,6 @@
 
 #include <qdebug.h>
 
-
 enum class DisplayName
 {
     primary = HWC_DISPLAY_PRIMARY,
@@ -122,7 +121,7 @@ public:
     virtual void sleepDisplay(bool sleep) = 0;
     virtual float refreshRate() = 0;
 
-    virtual bool getScreenSizes(int *width, int *height, float *physical_width, float *physical_height, DisplayName display_name) = 0;
+    virtual bool getScreenSizes(int *width, int *height, float *physical_width, float *physical_height) = 0;
 
     virtual bool requestUpdate(QEglFSWindow *) { return false; }
 

@@ -75,6 +75,7 @@ HwComposerBackend::create()
 {
     hw_module_t *hwc_module = NULL;
     hw_device_t *hwc_device = NULL;
+    //display_name defualts to primary---change with context line 67
     DisplayName display_name = DisplayName::primary;
     void *libminisf;
     void (*startMiniSurfaceFlinger)(void) = NULL;
@@ -172,6 +173,7 @@ HwComposerBackend::create()
 #endif /* HWC_PLUGIN_HAVE_HWCOMPOSER1_API */
 #ifdef HWC_PLUGIN_HAVE_HWCOMPOSER2_API
         case HWC_DEVICE_API_VERSION_2_0:
+            //Added display_name....dont forget
             return new HwComposerBackend_v20(hwc_module, libminisf, display_name);
             break;
 #endif

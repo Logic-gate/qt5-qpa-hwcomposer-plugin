@@ -450,7 +450,7 @@ HwComposerBackend_v11::refreshRate()
 }
 
 bool
-HwComposerBackend_v11::getScreenSizes(int *width, int *height, float *physical_width, float *physical_height, DisplayName display_name)
+HwComposerBackend_v11::getScreenSizes(int *width, int *height, float *physical_width, float *physical_height)
 {
     int dpi_x = getSingleAttribute(HWC_DISPLAY_DPI_X) / 1000;
     int dpi_y = getSingleAttribute(HWC_DISPLAY_DPI_Y) / 1000;
